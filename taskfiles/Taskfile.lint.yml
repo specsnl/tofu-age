@@ -1,0 +1,24 @@
+# https://taskfile.dev
+version: "3"
+
+tasks:
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - task: dc:run:golangci-lint
+        vars:
+          SUB_CMD: "golangci-lint run"
+
+  lint:fix:
+    desc: Run golangci-lint with --fix
+    cmds:
+      - task: dc:run:golangci-lint
+        vars:
+          SUB_CMD: "golangci-lint run --fix"
+
+  lint:docker:
+    desc: Lint the Dockerfile with hadolint
+    cmds:
+      - task: dc:run:hadolint
+        vars:
+          SUB_CMD: "hadolint Dockerfile"

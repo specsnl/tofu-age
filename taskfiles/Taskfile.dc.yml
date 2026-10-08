@@ -1,0 +1,65 @@
+# https://taskfile.dev
+version: "3"
+
+tasks:
+
+  compose:
+    desc: Run a docker compose command
+    internal: true
+    vars:
+      FIXUID:
+        sh: echo ${FIXUID:-$(id -u)}
+      FIXGID:
+        sh: echo ${FIXGID:-$(id -g)}
+    cmds:
+      - FIXUID={{ .FIXUID }} FIXGID={{ .FIXGID }} docker compose {{ .SUB_CMD }} {{ .CLI_ARGS }}
+
+  volume:init:
+    desc: Create the cache directories in the shared volume, owned by the host user
+    summary: |
+      `run --rm` leaves no stopped container behind, and `run: once` keeps it to
+      one run per task invocation, however many services that invocation starts.
+    internal: true
+    run: once
+    cmds:
+      - task: compose
+        vars:
+          SUB_CMD: run --rm volume-init
+          # Without this, `task test -- -run X` would hand -run X to busybox too.
+          CLI_ARGS: ""
+
+  build:
+    desc: Run docker compose build
+    cmds:
+      - task: compose
+        vars:
+          SUB_CMD: --profile=* build
+
+  run:*:
+    desc: Run a one-off docker compose command
+    vars:
+      SERVICE: '{{ index .MATCH 0 }}'
+      RUN_FLAGS: '{{ .RUN_FLAGS | default "" }}'
+      USER_FLAG: '{{ (ne (.NON_ROOT | default "true") "false") | ternary " --user $(id -u):$(id -g)" "" }}'
+      COMPOSE_SERVICES:
+        sh: COMPOSE_PROFILES="*" docker compose config --services
+    cmds:
+      - task: volume:init
+      - task: compose
+        vars:
+          SUB_CMD: 'run --rm {{ .RUN_FLAGS }} {{ .USER_FLAG }} {{ .SERVICE }} {{ .SUB_CMD }}'
+          CLI_ARGS: '{{ .CLI_ARGS }}'
+    requires:
+      vars:
+        - name: SERVICE
+          enum:
+            ref: .COMPOSE_SERVICES | splitLines | compact
+
+  shell:
+    desc: Shell into a docker compose service
+    cmds:
+      - task: volume:init
+      - task: compose
+        vars:
+          SUB_CMD: "run --tty --rm go-builder /bin/bash"
+          CLI_ARGS: "{{.CLI_ARGS}}"

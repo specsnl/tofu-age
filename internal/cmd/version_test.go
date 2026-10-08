@@ -1,6 +1,8 @@
 package cmd_test
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/specsnl/tofu-age/internal/cmd"
@@ -58,6 +60,33 @@ func TestVersion_RootFlagMatchesDontPrettify(t *testing.T) {
 func TestVersion_DefaultsToDev(t *testing.T) {
 	if cmd.Version != "dev" {
 		t.Errorf("Version = %q, want %q", cmd.Version, "dev")
+	}
+}
+
+// The Dockerfile names the variable by its full path, in a string the compiler
+// never checks. Renaming or moving Version would leave it injecting into
+// nothing, and every build would silently ship as "dev" — so the path is
+// asserted against the source rather than trusted.
+func TestVersion_DockerfileInjectsThisVariable(t *testing.T) {
+	const (
+		module = "github.com/specsnl/tofu-age"
+		want   = module + "/internal/cmd.Version"
+	)
+
+	content, err := os.ReadFile("../../Dockerfile")
+	if err != nil {
+		t.Fatalf("read the Dockerfile: %v", err)
+	}
+
+	// The Dockerfile builds the path from ${GO_MODULE}, so the module has to be
+	// its default and the suffix has to follow the variable.
+	for _, fragment := range []string{
+		"ARG GO_MODULE=" + module + "\n",
+		"${GO_MODULE}" + strings.TrimPrefix(want, module) + "=",
+	} {
+		if !strings.Contains(string(content), fragment) {
+			t.Errorf("the Dockerfile lacks %q; a build from it would not inject %s and would ship as %q", fragment, want, "dev")
+		}
 	}
 }
 

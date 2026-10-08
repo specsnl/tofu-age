@@ -1,0 +1,49 @@
+# https://taskfile.dev
+version: "3"
+
+vars:
+  # The leading v is stripped so a local build and a release agree on how a
+  # version is spelled: a release injects the tag without it. The fallback is
+  # captured before the strip so that a tree git cannot describe at all yields
+  # "dev" rather than an empty version.
+  TOFU_AGE_VERSION:
+    sh: described=$(git describe --tags --always --dirty="-dev" 2>/dev/null || echo "dev"); echo "${described#v}"
+
+tasks:
+
+  build:
+    desc: Build tofu-age
+    cmds:
+      - task: lint
+      - >-
+        docker buildx bake --file compose.yml
+        --set "go-binary.output=type=local,dest=."
+        --set "go-binary.args.GOARCH={{ARCH}}"
+        --set "go-binary.args.GOOS={{OS}}"
+        --set "go-binary.args.TOFU_AGE_VERSION={{.TOFU_AGE_VERSION}}"
+        go-binary
+
+  tidy:check:
+    desc: Check that go.mod and go.sum are tidy
+    summary: |
+      Fails, without writing anything, when `go mod tidy` would change go.mod or go.sum.
+
+      Run `task tidy` to apply what it reports.
+    cmds:
+      - task: dc:run:go-builder
+        vars:
+          SUB_CMD: "go mod tidy -diff"
+
+  tidy:
+    desc: Run go mod tidy
+    cmds:
+      - task: dc:run:go-builder
+        vars:
+          SUB_CMD: "go mod tidy"
+
+  test:
+    desc: Run go tests
+    cmds:
+      - task: dc:run:go-builder
+        vars:
+          SUB_CMD: "go test -race ./..."
