@@ -13,6 +13,10 @@ config:
       - details
       - summary
       - code
+  no-hard-tabs:
+    # gofmt indents with tabs, so Go code blocks keep them.
+    ignore_code_languages:
+      - go
   ul-style:
     style: dash
   # CLAUDE.md opens with an @import directive rather than a Markdown H1.
