@@ -1,0 +1,32 @@
+version: 2
+
+builds:
+  - id: tofu-age
+    main: .
+    binary: tofu-age
+    flags:
+      - -trimpath
+      - -tags=netgo
+    ldflags:
+      - -s -w
+      - -X github.com/specsnl/tofu-age/internal/cmd.Version={{ .Version }}
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+archives:
+  - formats: [tar.gz]
+    # No version in the name: an image builds the download URL from the version
+    # and the architecture alone, and the version is already in the URL's path.
+    name_template: "tofu-age_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: specsnl
+    name: tofu-age
+  draft: false
+  prerelease: auto
