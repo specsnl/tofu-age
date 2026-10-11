@@ -1,0 +1,31 @@
+# https://taskfile.dev
+version: "3"
+
+vars:
+  # The OpenTofu release the schemas under internal/protocol/testdata come from.
+  # Keep it at the version ghcr.io/specsnl/opentofu ships: that is the OpenTofu
+  # tofu-age runs under.
+  # Base image: https://github.com/specsnl/opentofu/blob/main/Dockerfile
+  OPENTOFU_SCHEMAS_VERSION: v1.13.1
+
+tasks:
+
+  update:
+    desc: Download OpenTofu's protocol schemas at OPENTOFU_SCHEMAS_VERSION into internal/protocol/testdata
+    summary: |
+      Overwrites the vendored schemas with the ones at OPENTOFU_SCHEMAS_VERSION, unchanged.
+
+      To move to a newer OpenTofu, set OPENTOFU_SCHEMAS_VERSION first. Runs on the host and needs
+      the network: it is curl and nothing else, so there is no toolchain to pin.
+    cmds:
+      - scripts/opentofu-schemas.sh update {{.OPENTOFU_SCHEMAS_VERSION}}
+
+  check:
+    desc: Check the vendored schemas against OPENTOFU_SCHEMAS_VERSION and the latest OpenTofu release
+    summary: |
+      Fails when the vendored schemas differ from those at OPENTOFU_SCHEMAS_VERSION, or when the
+      latest OpenTofu release changed them. A newer release with the same schemas passes.
+
+      Needs the network, so it is not part of checkall; the OpenTofu schemas workflow runs it monthly.
+    cmds:
+      - scripts/opentofu-schemas.sh check {{.OPENTOFU_SCHEMAS_VERSION}}
