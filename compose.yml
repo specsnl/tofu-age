@@ -49,7 +49,7 @@ services:
     profiles: ["markdown"]
     user: ${FIXUID:-1000}:${FIXGID:-1000}
     # Latest version: https://hub.docker.com/_/node/tags
-    image: node:24.21.0-trixie
+    image: node:26.10.0-trixie
     working_dir: /src
     environment:
       NPM_CONFIG_CACHE: /cache/npm
