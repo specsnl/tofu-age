@@ -19,7 +19,8 @@ import (
 
 const flagVersion = "version"
 
-// errNotImplemented is what encrypt and decrypt return until they are built.
+// errNotImplemented is what encrypt and decrypt return, after speaking the
+// protocol, until the age crypto is built.
 var errNotImplemented = errors.New("not implemented yet")
 
 // Execute builds the command tree and runs it against the process's arguments
