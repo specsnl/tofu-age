@@ -88,7 +88,7 @@ tests or the Markdown checks.
   layer that adds context:
 
   ```go
-  return fmt.Errorf("encrypt: %w", errNotImplemented)
+  return fmt.Errorf("decrypt: %w", errNoIdentity)
   ```
 
 - **Code changes require tests and docs.** Add or update `*_test.go` files covering the changed
