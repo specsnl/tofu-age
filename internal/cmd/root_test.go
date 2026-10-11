@@ -2,17 +2,30 @@ package cmd_test
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/specsnl/tofu-age/internal/cmd"
+	"github.com/specsnl/tofu-age/internal/protocol"
 )
 
+// header is the protocol's first line, which encrypt and decrypt write before
+// anything can fail.
+const header = `{"magic":"OpenTofu-External-Encryption-Method","version":1}` + "\n"
+
 // run builds the tree the way main does, points both streams at buffers, and
-// executes. Every assertion below reads those buffers: if a test cannot see the
-// output, a command wrote to os.Stdout/os.Stderr directly and the wiring is
-// wrong, which is exactly what this helper is here to catch.
+// executes with an empty stdin. Every assertion below reads those buffers: if a
+// test cannot see the output, a command wrote to os.Stdout/os.Stderr directly
+// and the wiring is wrong, which is exactly what this helper is here to catch.
 func run(t *testing.T, args ...string) (string, string, error) {
+	t.Helper()
+
+	return runWithInput(t, "", args...)
+}
+
+// runWithInput is run with stdin, for the commands that speak the protocol.
+func runWithInput(t *testing.T, stdin string, args ...string) (string, string, error) {
 	t.Helper()
 
 	var stdout, stderr bytes.Buffer
@@ -20,7 +33,7 @@ func run(t *testing.T, args ...string) (string, string, error) {
 	root := cmd.NewRootCmd()
 	root.SetOut(&stdout)
 	root.SetErr(&stderr)
-	root.SetIn(&bytes.Buffer{})
+	root.SetIn(strings.NewReader(stdin))
 	root.SetArgs(args)
 
 	err := root.Execute()
@@ -60,28 +73,59 @@ func TestRoot_SilencesUsageAndErrors(t *testing.T) {
 		t.Fatal("want an error, got none")
 	}
 
-	for name, got := range map[string]string{"stdout": stdout, "stderr": stderr} {
-		if got != "" {
-			t.Errorf("%s = %q, want nothing; main owns the single print", name, got)
-		}
+	// stdout holds the protocol header and nothing else.
+	if stdout != header {
+		t.Errorf("stdout = %q, want only the header; main owns the single print", stdout)
+	}
+
+	if stderr != "" {
+		t.Errorf("stderr = %q, want nothing; main owns the single print", stderr)
 	}
 }
 
-// Until they are built, encrypt and decrypt fail, and leave stdout to the
-// protocol they do not speak yet.
-func TestStubs_FailWithoutWritingStdout(t *testing.T) {
+// Until the crypto is built, encrypt and decrypt speak the protocol and then
+// fail: stdout holds the header alone, and the error says why.
+func TestStubs_SpeakTheProtocolThenFail(t *testing.T) {
 	for _, args := range [][]string{
 		{"encrypt", "age-recipients.txt"},
 		{"decrypt"},
 	} {
 		t.Run(args[0], func(t *testing.T) {
-			stdout, _, err := run(t, args...)
+			stdout, stderr, err := runWithInput(t, `{"payload":"aGVsbG8="}`, args...)
 			if err == nil || !strings.Contains(err.Error(), "not implemented") {
 				t.Fatalf("error = %v, want it to say not implemented", err)
 			}
 
-			if stdout != "" {
-				t.Errorf("stdout = %q, want nothing", stdout)
+			if !strings.HasPrefix(err.Error(), args[0]+": ") {
+				t.Errorf("error = %q, want it to name the command", err)
+			}
+
+			if stdout != header {
+				t.Errorf("stdout = %q, want only the header", stdout)
+			}
+
+			if stderr != "" {
+				t.Errorf("stderr = %q, want nothing; main owns the single print", stderr)
+			}
+		})
+	}
+}
+
+// A key in the input is refused by both commands, before any crypto, with the
+// sentinel intact through the command's wrapping.
+func TestStubs_RejectAKey(t *testing.T) {
+	for _, args := range [][]string{
+		{"encrypt", "age-recipients.txt"},
+		{"decrypt"},
+	} {
+		t.Run(args[0], func(t *testing.T) {
+			stdout, _, err := runWithInput(t, `{"key":"c2VjcmV0","payload":"aGVsbG8="}`, args...)
+			if !errors.Is(err, protocol.ErrKeyProvided) {
+				t.Fatalf("error = %v, want %v", err, protocol.ErrKeyProvided)
+			}
+
+			if stdout != header {
+				t.Errorf("stdout = %q, want only the header", stdout)
 			}
 		})
 	}

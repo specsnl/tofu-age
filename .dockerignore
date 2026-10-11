@@ -5,6 +5,7 @@
 /dist
 /tofu-age
 docs
+scripts
 taskfiles
 .dockerignore
 .editorconfig

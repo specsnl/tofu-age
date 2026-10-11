@@ -22,19 +22,21 @@ per invocation, so a run leaves no stopped containers behind.
 
 Run `task --list` for the full set. The ones used most:
 
-| Command            | What it does                                                                     |
-|--------------------|----------------------------------------------------------------------------------|
-| `task checkall`    | The full check sequence: `tidy:check`, `lint`, `lint:docker`, `test`, `md:check` |
-| `task tidy:check`  | `go mod tidy -diff` — fails if `go.mod`/`go.sum` are untidy                      |
-| `task tidy`        | `go mod tidy`                                                                    |
-| `task lint`        | `golangci-lint run`                                                              |
-| `task lint:fix`    | `golangci-lint run --fix`                                                        |
-| `task lint:docker` | `hadolint Dockerfile`                                                            |
-| `task test`        | `go test -race ./...`                                                            |
-| `task md:check`    | markdownlint over every Markdown file                                            |
-| `task md:fix`      | Align Markdown tables, then apply autofixable rules                              |
-| `task build`       | Build the binary into the working directory                                      |
-| `task dc:shell`    | Shell into the `go-builder` service                                              |
+| Command               | What it does                                                                     |
+|-----------------------|----------------------------------------------------------------------------------|
+| `task checkall`       | The full check sequence: `tidy:check`, `lint`, `lint:docker`, `test`, `md:check` |
+| `task tidy:check`     | `go mod tidy -diff` — fails if `go.mod`/`go.sum` are untidy                      |
+| `task tidy`           | `go mod tidy`                                                                    |
+| `task lint`           | `golangci-lint run`                                                              |
+| `task lint:fix`       | `golangci-lint run --fix`                                                        |
+| `task lint:docker`    | `hadolint Dockerfile`                                                            |
+| `task test`           | `go test -race ./...`                                                            |
+| `task md:check`       | markdownlint over every Markdown file                                            |
+| `task md:fix`         | Align Markdown tables, then apply autofixable rules                              |
+| `task schemas:update` | Download OpenTofu's protocol schemas into `internal/protocol/testdata`           |
+| `task schemas:check`  | Check those schemas against the pinned and the latest OpenTofu release           |
+| `task build`          | Build the binary into the working directory                                      |
+| `task dc:shell`       | Shell into the `go-builder` service                                              |
 
 ### Local check sequence
 
@@ -53,6 +55,10 @@ an untidy `go.mod`/`go.sum` fails the check with the diff it would have applied 
 rewriting the tree mid-check. Run `task tidy` to apply it. CI runs the same check in the `Unit
 tests` job, and `lint:docker` — the task itself, so the hadolint version stays pinned once, in
 `compose.yml` — in the `Dockerfile lint` job.
+
+`schemas:check` needs the network, so it is not part of `checkall`: the `OpenTofu schemas` workflow runs it monthly,
+and on pull requests that touch the schemas. Both `schemas:` tasks run `scripts/opentofu-schemas.sh` on the host
+rather than in a container — it is `curl` and `diff`, with no toolchain to pin.
 
 `task build` runs `task lint` first, so a green build implies a green lint — but it does not run the
 tests or the Markdown checks.
@@ -100,7 +106,8 @@ tests or the Markdown checks.
 tofu-age/
 ├── main.go          # cmd.Execute(), the single error print, os.Exit
 └── internal/
-    └── cmd/         # one file per Cobra command: encrypt, decrypt, version
+    ├── cmd/         # one file per Cobra command: encrypt, decrypt, version
+    └── protocol/    # the OpenTofu external encryption method protocol; no crypto
 ```
 
 ## Documentation
