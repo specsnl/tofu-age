@@ -22,21 +22,22 @@ per invocation, so a run leaves no stopped containers behind.
 
 Run `task --list` for the full set. The ones used most:
 
-| Command               | What it does                                                                     |
-|-----------------------|----------------------------------------------------------------------------------|
-| `task checkall`       | The full check sequence: `tidy:check`, `lint`, `lint:docker`, `test`, `md:check` |
-| `task tidy:check`     | `go mod tidy -diff` — fails if `go.mod`/`go.sum` are untidy                      |
-| `task tidy`           | `go mod tidy`                                                                    |
-| `task lint`           | `golangci-lint run`                                                              |
-| `task lint:fix`       | `golangci-lint run --fix`                                                        |
-| `task lint:docker`    | `hadolint Dockerfile`                                                            |
-| `task test`           | `go test -race ./...`                                                            |
-| `task md:check`       | markdownlint over every Markdown file                                            |
-| `task md:fix`         | Align Markdown tables, then apply autofixable rules                              |
-| `task schemas:update` | Download OpenTofu's protocol schemas into `internal/protocol/testdata`           |
-| `task schemas:check`  | Check those schemas against the pinned and the latest OpenTofu release           |
-| `task build`          | Build the binary into the working directory                                      |
-| `task dc:shell`       | Shell into the `go-builder` service                                              |
+| Command                | What it does                                                                                |
+|------------------------|---------------------------------------------------------------------------------------------|
+| `task checkall`        | The full check sequence: `tidy:check`, `lint`, `lint:docker`, `test`, `md:check`            |
+| `task tidy:check`      | `go mod tidy -diff` — fails if `go.mod`/`go.sum` are untidy                                 |
+| `task tidy`            | `go mod tidy`                                                                               |
+| `task lint`            | `golangci-lint run`                                                                         |
+| `task lint:fix`        | `golangci-lint run --fix`                                                                   |
+| `task lint:docker`     | `hadolint Dockerfile`                                                                       |
+| `task test`            | `go test -race ./...`                                                                       |
+| `task md:check`        | markdownlint over every Markdown file                                                       |
+| `task md:fix`          | Align Markdown tables, then apply autofixable rules                                         |
+| `task schemas:update`  | Download OpenTofu's protocol schemas into `internal/protocol/testdata`                      |
+| `task schemas:check`   | Check those schemas against the pinned and the latest OpenTofu release                      |
+| `task build`           | Build the binary into the working directory                                                 |
+| `task release:dry-run` | Build a snapshot release — the linux and darwin archives and `checksums.txt` — into `dist/` |
+| `task dc:shell`        | Shell into the `go-builder` service                                                         |
 
 ### Local check sequence
 

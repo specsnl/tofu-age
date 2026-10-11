@@ -272,7 +272,16 @@ The recipients path is resolved relative to the directory `tofu` runs in, so kee
 
 If another configuration reads this state through `terraform_remote_state`, it also needs a `remote_state_data_sources` block that uses the same method. Without it, that read fails once the state is encrypted.
 
-Distribution is Docker only. Releases ship Linux tarballs and a `checksums.txt`, and `ghcr.io/specsnl/opentofu` installs the binary from them the same way it installs Terramate, so the image gains no Go toolchain.
+Pipelines get the binary through Docker. Releases ship Linux tarballs and a `checksums.txt`, and `ghcr.io/specsnl/opentofu` installs the binary from them the same way it installs Terramate, so the image gains no Go toolchain. Releases also ship darwin tarballs, so an engineer can run `tofu` with `op run` on a Mac.
+
+Releases are built by goreleaser from `.goreleaser.yml` when a `v*` tag is pushed:
+
+- **Linux and darwin, amd64 and arm64,** built with `CGO_ENABLED=0`. The binary is static, so it runs on Alpine without glibc.
+- **Archive names carry no version:** `tofu-age_<os>_<arch>.tar.gz`. The version is already in the download URL's path, so an image needs only the version and `TARGETARCH` to build it.
+- **A tag with a pre-release suffix,** such as `v0.1.0-rc.1`, is published as a pre-release.
+- **The release job alone may write.** The workflow grants `contents: read`, and only the release job gets `contents: write`. There is no Homebrew cask, so no tap token either.
+
+`task release:dry-run` builds the same archives and `checksums.txt` into `dist/` as a snapshot, without publishing anything.
 
 The image contains the binary only, never an identity. Decryption rights are decided at runtime by whichever secret gets injected. Tag the image whenever `tofu-age` changes, so every pipeline runs a known version.
 
@@ -307,7 +316,7 @@ The biggest risk is losing the ability to decrypt. Everything else is a limit on
 Decided:
 
 - The source lives in a repo of its own, [specsnl/tofu-age](https://github.com/specsnl/tofu-age).
-- Distribution is Docker only, through `ghcr.io/specsnl/opentofu`.
+- Pipelines get the binary through `ghcr.io/specsnl/opentofu`. Releases also ship darwin tarballs for running `tofu` on a Mac.
 - There is no migration: existing state is recreated under the new method.
 - v0 takes age keys, classic or post-quantum, and `ssh-ed25519` or `ssh-rsa` keys without a passphrase: no plugin keys.
 
