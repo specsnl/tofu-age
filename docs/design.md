@@ -53,7 +53,7 @@ The schemas live in [opentofu/internal/encryption/method/external/protocol](http
 - **The input is decoded as strictly as the schema describes it.** An unknown field, a missing or `null` payload, or anything after the object is an error.
 - **A non-empty `key` is refused.** tofu-age takes no key provider, so a key means one was configured on the method by mistake. Silently ignoring it would hide that mistake.
 - **An empty result is written as `""`,** never `null`, which the output schema rejects.
-- **The tests validate against OpenTofu's schemas,** vendored under `internal/protocol/testdata`.
+- **The tests validate against OpenTofu's schemas,** vendored under `internal/protocol/testdata` at the OpenTofu release that `ghcr.io/specsnl/opentofu` ships. `task schemas:update` downloads them again, and a monthly workflow runs `task schemas:check`, which fails once a newer OpenTofu release changes them.
 
 Keys come from two places:
 
