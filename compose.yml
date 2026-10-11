@@ -1,0 +1,81 @@
+volumes:
+  cache:
+
+services:
+  volume-init:
+    # Latest version: https://hub.docker.com/_/busybox/tags
+    image: busybox:1.38.0-musl
+    user: root
+    volumes:
+      - cache:/cache
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /cache/go-build
+        mkdir -p /cache/go-mod
+        mkdir -p /cache/golangci-lint
+        mkdir -p /cache/npm
+        chown -R ${FIXUID:-1000}:${FIXGID:-1000} /cache
+
+  go-builder:
+    profiles: ["build"]
+    user: ${FIXUID:-1000}:${FIXGID:-1000}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder-download
+    environment:
+      GOCACHE: /cache/go-build
+      GOMODCACHE: /cache/go-mod
+    volumes:
+      - .:/src
+      - cache:/cache
+
+  go-binary:
+    profiles: ["build"]
+    user: ${FIXUID:-1000}:${FIXGID:-1000}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: export
+    environment:
+      GOCACHE: /cache/go-build
+      GOMODCACHE: /cache/go-mod
+    volumes:
+      - cache:/cache
+
+  node:
+    profiles: ["markdown"]
+    user: ${FIXUID:-1000}:${FIXGID:-1000}
+    # Latest version: https://hub.docker.com/_/node/tags
+    image: node:24.21.0-trixie
+    working_dir: /src
+    environment:
+      NPM_CONFIG_CACHE: /cache/npm
+    volumes:
+      - .:/src
+      - cache:/cache
+
+  hadolint:
+    profiles: ["lint"]
+    user: ${FIXUID:-1000}:${FIXGID:-1000}
+    # Latest version: https://hub.docker.com/r/hadolint/hadolint/tags
+    image: hadolint/hadolint:v2.15.1
+    working_dir: /src
+    volumes:
+      - .:/src
+
+  golangci-lint:
+    profiles: ["lint"]
+    user: ${FIXUID:-1000}:${FIXGID:-1000}
+    # Latest version: https://hub.docker.com/r/golangci/golangci-lint/tags
+    image: golangci/golangci-lint:v2.14.0-alpine
+    working_dir: /src
+    environment:
+      GOCACHE: /cache/go-build
+      GOMODCACHE: /cache/go-mod
+      GOLANGCI_LINT_CACHE: /cache/golangci-lint
+    volumes:
+      - .:/src
+      - cache:/cache

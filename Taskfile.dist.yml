@@ -1,0 +1,40 @@
+# https://taskfile.dev
+version: "3"
+
+includes:
+  dc: ./taskfiles/Taskfile.dc.yml
+  md: ./taskfiles/Taskfile.md.yml
+  go:
+    taskfile: ./taskfiles/Taskfile.go.yml
+    flatten: true
+  lint:
+    taskfile: ./taskfiles/Taskfile.lint.yml
+    flatten: true
+
+silent: true
+
+tasks:
+
+  checkall:
+    desc: Run every check — the tidy check, golangci-lint, hadolint, the Go tests, and markdownlint
+    summary: |
+      The full local check sequence: tidy:check, lint, lint:docker, test, md:check.
+
+      Every step reports; none of them writes. Run this before opening a pull request.
+    cmds:
+      - task: tidy:check
+      - task: lint
+      - task: lint:docker
+      - task: test
+      - task: md:check
+
+  cleanup:
+    desc: Cleanup workspace
+    summary: |
+      Cleanup of almost all gitignored files, untracked files and development containers.
+
+      The following files/dirs are excluded: none
+    cmds:
+      - git clean
+        -xd
+        --force
