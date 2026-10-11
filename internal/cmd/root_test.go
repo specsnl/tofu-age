@@ -125,33 +125,6 @@ func TestRoot_SilencesUsageAndErrors(t *testing.T) {
 	}
 }
 
-// Until the crypto is built, decrypt speaks the protocol and then fails:
-// stdout holds the header alone, and the error says why.
-func TestStubs_SpeakTheProtocolThenFail(t *testing.T) {
-	for _, args := range [][]string{
-		{"decrypt"},
-	} {
-		t.Run(args[0], func(t *testing.T) {
-			stdout, stderr, err := runWithInput(t, `{"payload":"aGVsbG8="}`, args...)
-			if err == nil || !strings.Contains(err.Error(), "not implemented") {
-				t.Fatalf("error = %v, want it to say not implemented", err)
-			}
-
-			if !strings.HasPrefix(err.Error(), args[0]+": ") {
-				t.Errorf("error = %q, want it to name the command", err)
-			}
-
-			if stdout != header {
-				t.Errorf("stdout = %q, want only the header", stdout)
-			}
-
-			if stderr != "" {
-				t.Errorf("stderr = %q, want nothing; main owns the single print", stderr)
-			}
-		})
-	}
-}
-
 // A key in the input is refused by both commands, before any crypto, with the
 // sentinel intact through the command's wrapping.
 func TestCommands_RejectAKey(t *testing.T) {

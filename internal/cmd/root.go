@@ -11,17 +11,9 @@
 // writers unflushed.
 package cmd
 
-import (
-	"errors"
-
-	"github.com/spf13/cobra"
-)
+import "github.com/spf13/cobra"
 
 const flagVersion = "version"
-
-// errNotImplemented is what decrypt returns, after speaking the protocol,
-// until the age crypto is built.
-var errNotImplemented = errors.New("not implemented yet")
 
 // Execute builds the command tree and runs it against the process's arguments
 // and streams.
