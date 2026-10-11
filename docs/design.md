@@ -47,6 +47,14 @@ The protocol is simple:
 
 The schemas live in [opentofu/internal/encryption/method/external/protocol](https://github.com/opentofu/opentofu/tree/main/internal/encryption/method/external/protocol).
 
+`internal/protocol` implements it without any crypto, so the stdout contract is tested separately from age:
+
+- **The header goes out first,** before the input is read. Whatever fails afterwards, stdout holds the header and at most one output object; on an error it holds the header alone, and the error goes to stderr.
+- **The input is decoded as strictly as the schema describes it.** An unknown field, a missing or `null` payload, or anything after the object is an error.
+- **A non-empty `key` is refused.** tofu-age takes no key provider, so a key means one was configured on the method by mistake. Silently ignoring it would hide that mistake.
+- **An empty result is written as `""`,** never `null`, which the output schema rejects.
+- **The tests validate against OpenTofu's schemas,** vendored under `internal/protocol/testdata`.
+
 Keys come from two places:
 
 - **Encryption** reads public keys from a recipients file whose path is passed as an argument.
@@ -181,7 +189,7 @@ Before first use:
 
 - [ ] Pin `filippo.io/age` in `go.mod`, so the exact code that wrote a state file can be rebuilt later.
 - [ ] Add a round-trip test: encrypt with a test recipient, then decrypt with the matching identity.
-- [ ] Add protocol tests: the header line comes first, and only JSON is written to stdout.
+- [x] Add protocol tests: the header line comes first, and only JSON is written to stdout.
 - [ ] Add a failure test: a missing or wrong identity must exit non-zero.
 
 ## Key management

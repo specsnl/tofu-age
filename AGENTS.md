@@ -100,7 +100,8 @@ tests or the Markdown checks.
 tofu-age/
 ├── main.go          # cmd.Execute(), the single error print, os.Exit
 └── internal/
-    └── cmd/         # one file per Cobra command: encrypt, decrypt, version
+    ├── cmd/         # one file per Cobra command: encrypt, decrypt, version
+    └── protocol/    # the OpenTofu external encryption method protocol; no crypto
 ```
 
 ## Documentation
