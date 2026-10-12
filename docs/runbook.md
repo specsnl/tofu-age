@@ -49,7 +49,7 @@ op read "op://<vault>/tofu-age <name>/notesPlain" | age-keygen -y
 
 ## The recipients file
 
-`age-recipients.txt` sits next to the root module and is committed. It takes one public key per line. Blank lines and lines starting with `#` are skipped, so put a comment above each key naming whose it is and where it lives:
+Each environment has its own `age-recipients.txt`, committed alongside its root modules, so production can be readable by fewer people than staging. It takes one public key per line. Blank lines and lines starting with `#` are skipped, so put a comment above each key naming whose it is and where it lives:
 
 ```text
 # alice (laptop)
