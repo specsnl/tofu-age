@@ -149,6 +149,8 @@ func TestCommands_RejectAKey(t *testing.T) {
 // reaches stdout.
 func TestCommands_ValidateArguments(t *testing.T) {
 	for _, args := range [][]string{
+		{"check"},
+		{"check", "a.txt", "b.txt"},
 		{"encrypt"},
 		{"encrypt", "a.txt", "b.txt"},
 		{"decrypt", "extra"},
