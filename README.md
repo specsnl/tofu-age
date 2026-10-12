@@ -41,9 +41,46 @@ What it does, in one list:
 
 ## Install
 
-Distribution is Docker only: `ghcr.io/specsnl/opentofu` ships the binary. Releases publish Linux
-tarballs and a `checksums.txt`, so an image can install it the way it installs any other release
-binary. There is no release yet.
+`ghcr.io/specsnl/opentofu` ships the binary. Each release publishes a static tarball per OS and
+architecture, `tofu-age_<os>_<arch>.tar.gz` for `linux` and `darwin` on `amd64` and `arm64`, and a
+`checksums.txt`. The archive names carry no version, so the download URL is built from the
+version, the OS and the architecture alone. The darwin tarballs are for running `tofu` on a Mac.
+
+To install it in an image, pin the version and both checksums, check the download with
+`sha256sum -c`, then `install` the binary:
+
+```dockerfile
+# Latest version of Alpine image: https://hub.docker.com/_/alpine/tags
+FROM alpine:3.24.2 AS tofu-age
+
+# Latest version of tofu-age: https://github.com/specsnl/tofu-age/releases
+ARG TOFU_AGE_VERSION=<version>
+# Checksums can be found in the checksums.txt file attached to the release
+ARG TOFU_AGE_CHECKSUM_AMD64=<sha256 of tofu-age_linux_amd64.tar.gz>
+ARG TOFU_AGE_CHECKSUM_ARM64=<sha256 of tofu-age_linux_arm64.tar.gz>
+ARG TARGETARCH
+
+WORKDIR /tmp/tofu-age
+
+RUN case "${TARGETARCH}" in \
+            amd64) checksum="${TOFU_AGE_CHECKSUM_AMD64}" ;; \
+            arm64) checksum="${TOFU_AGE_CHECKSUM_ARM64}" ;; \
+            *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+        esac \
+    && archive="tofu-age_linux_${TARGETARCH}.tar.gz" \
+    && wget -q "https://github.com/specsnl/tofu-age/releases/download/v${TOFU_AGE_VERSION}/${archive}" \
+    && echo "${checksum}  ${archive}" > checksum.txt \
+    && sha256sum -c checksum.txt \
+    && tar -xzf "${archive}" tofu-age \
+    && install -m 0755 tofu-age /usr/local/bin/tofu-age
+
+FROM alpine:3.24.2
+
+COPY --from=tofu-age /usr/local/bin/tofu-age /usr/local/bin/tofu-age
+```
+
+The checksums are pinned in the Dockerfile rather than read from `checksums.txt` at build time, so a
+replaced release asset fails the build instead of being trusted.
 
 Building from a checkout needs nothing but Docker and [Task](https://taskfile.dev):
 

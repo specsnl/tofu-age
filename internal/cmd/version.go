@@ -11,9 +11,9 @@ import (
 //
 //	-ldflags "-X github.com/specsnl/tofu-age/internal/cmd.Version=1.2.3"
 //
-// The Dockerfile names this variable by that exact path, so it has to stay in
-// this package under this name — rename it and every build silently ships as
-// "dev".
+// The Dockerfile and .goreleaser.yml name this variable by that exact path, so
+// it has to stay in this package under this name — rename it and every build
+// silently ships as "dev".
 var Version = "dev"
 
 const flagDontPrettify = "dont-prettify"

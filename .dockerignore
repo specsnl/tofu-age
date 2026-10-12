@@ -11,6 +11,7 @@ taskfiles
 .editorconfig
 .gitignore
 .golangci.yml
+.goreleaser.yml
 .hadolint.yml
 .markdownlint-cli2.yaml
 AGENTS.md

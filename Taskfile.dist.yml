@@ -4,6 +4,7 @@ version: "3"
 includes:
   dc: ./taskfiles/Taskfile.dc.yml
   md: ./taskfiles/Taskfile.md.yml
+  release: ./taskfiles/Taskfile.release.yml
   schemas: ./taskfiles/Taskfile.schemas.yml
   go:
     taskfile: ./taskfiles/Taskfile.go.yml

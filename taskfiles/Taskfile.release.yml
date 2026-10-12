@@ -1,0 +1,14 @@
+# https://taskfile.dev
+version: "3"
+
+tasks:
+
+  dry-run:
+    desc: Build a snapshot release into dist/ without publishing it
+    summary: |
+      Runs goreleaser with --snapshot, which builds the linux and darwin archives and
+      checksums.txt from the current tree and skips every publishing step. Needs no token.
+    cmds:
+      - task: :dc:run:goreleaser
+        vars:
+          SUB_CMD: release --snapshot --clean

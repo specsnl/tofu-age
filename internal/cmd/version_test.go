@@ -90,6 +90,21 @@ func TestVersion_DockerfileInjectsThisVariable(t *testing.T) {
 	}
 }
 
+// A release is built by goreleaser, not the Dockerfile, so its path is a second
+// string the compiler never checks.
+func TestVersion_GoreleaserInjectsThisVariable(t *testing.T) {
+	const want = "-X github.com/specsnl/tofu-age/internal/cmd.Version={{ .Version }}"
+
+	content, err := os.ReadFile("../../.goreleaser.yml")
+	if err != nil {
+		t.Fatalf("read .goreleaser.yml: %v", err)
+	}
+
+	if !strings.Contains(string(content), want) {
+		t.Errorf(".goreleaser.yml lacks %q; a release would not inject the version and would ship as %q", want, "dev")
+	}
+}
+
 func TestVersion_RejectsArguments(t *testing.T) {
 	if _, _, err := run(t, "version", "extra"); err == nil {
 		t.Fatal("want an error for an unexpected argument, got none")
