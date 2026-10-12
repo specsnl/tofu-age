@@ -105,6 +105,22 @@ func TestVersion_GoreleaserInjectsThisVariable(t *testing.T) {
 	}
 }
 
+// v0.1.0 was tagged on v0.1.0-rc.1's commit, and goreleaser, picking between the
+// two tags itself, built it as the rc: the binaries said 0.1.0-rc.1 and the
+// uploads went to the rc's release.
+func TestVersion_ReleaseBuildsThePushedTag(t *testing.T) {
+	const want = "GORELEASER_CURRENT_TAG: ${{ github.ref_name }}"
+
+	content, err := os.ReadFile("../../.github/workflows/release.yml")
+	if err != nil {
+		t.Fatalf("read release.yml: %v", err)
+	}
+
+	if !strings.Contains(string(content), want) {
+		t.Errorf("release.yml lacks %q; a tag on an already-released commit could be built as the other tag", want)
+	}
+}
+
 func TestVersion_RejectsArguments(t *testing.T) {
 	if _, _, err := run(t, "version", "extra"); err == nil {
 		t.Fatal("want an error for an unexpected argument, got none")
