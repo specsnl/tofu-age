@@ -113,6 +113,7 @@ tofu-age/
 
 ## Documentation
 
-| File                               | Description                                                     |
-|------------------------------------|-----------------------------------------------------------------|
-| [docs/design.md](./docs/design.md) | The design: protocol, key management, configuration, operations |
+| File                                 | Description                                                                |
+|--------------------------------------|----------------------------------------------------------------------------|
+| [docs/design.md](./docs/design.md)   | The design: protocol, key management, configuration, operations            |
+| [docs/runbook.md](./docs/runbook.md) | Procedures: keys, recipients, CI, adding and removing someone, break-glass |

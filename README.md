@@ -108,7 +108,8 @@ Then let `op run` inject the identity, with `TOFU_AGE_IDENTITY=op://<vault>/<ite
 op run --env-file=.env.tofu -- tofu plan
 ```
 
-Key management, the break-glass key, and how recipient changes take effect are in
+Granting and revoking access, CI use, and break-glass recovery are in the
+[runbook](./docs/runbook.md). The reasoning behind key management is in
 [docs/design.md](./docs/design.md).
 
 ---
