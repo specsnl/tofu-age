@@ -293,7 +293,8 @@ Recipient changes take effect only on the next state write. age encrypts to the 
 - **Adding someone:** add their public key to `age-recipients.txt`, and have them run `tofu-age check age-recipients.txt` with their identity in `TOFU_AGE_IDENTITY`. It fails on a key that is not in the file, or an SSH key with a passphrase, which they would otherwise only find out about on their first read. Then run `tofu apply` on every state they need. Until that write happens, they can't read the existing state.
 - **Removing someone, or a lost laptop:** delete the line, then apply every state. Old versions in the backend's history can still be decrypted with the removed key. That person also saw the plaintext, so rotate the secrets stored in state.
 - **Switching to post-quantum keys:** every holder generates a key with `age-keygen -pq` and keeps the old identity alongside it in `TOFU_AGE_IDENTITY`. Once every new public key is in, replace the whole recipients file at once, since age won't mix the two kinds, and apply every state. Drop the old identities after that. Old versions in the backend's history stay classic. Reading post-quantum state by hand needs age 1.3 or later.
-- **Reading state without OpenTofu (break-glass):** pull the encrypted payload out of the envelope and decrypt it with age. Confirm the field name against a real encrypted file before relying on it.
+- **A read fails with `decryption failed for all provided methods`:** OpenTofu reports only that. The cause is in tofu-age's stderr, printed alongside it: for example `TOFU_AGE_IDENTITY is unset or empty`, or `identity did not match any of the recipients`. With state locking on, the same failure surfaces as `Error acquiring the state lock ... failed to write backup file: decryption failed …`, which looks like a backend problem but is a key problem. Run `tofu-age check age-recipients.txt` to confirm.
+- **Reading state without OpenTofu (break-glass):** pull the encrypted payload out of the envelope and decrypt it with age. The payload is in `encrypted_data`; the command below decrypted a real state object from the S3 backend in specsnl/specsops-opentofu#14.
 
   ```sh
   jq -r '.encrypted_data' terraform.tfstate | base64 -d | age -d -i break-glass.txt > plain.tfstate
@@ -320,10 +321,11 @@ Decided:
 - Pipelines get the binary through `ghcr.io/specsnl/opentofu`. Releases also ship darwin tarballs for running `tofu` on a Mac.
 - There is no migration: existing state is recreated under the new method.
 - v0 takes age keys, classic or post-quantum, and `ssh-ed25519` or `ssh-rsa` keys without a passphrase: no plugin keys.
+- The external method is stable as of OpenTofu 1.13, the version `ghcr.io/specsnl/opentofu` ships. Its docs marked it experimental from 1.10 through 1.12, and 1.13 dropped the label ([opentofu/opentofu@ebcf2c4](https://github.com/opentofu/opentofu/commit/ebcf2c493)).
+- tofu-age 0.1.0 is verified against OpenTofu v1.13.1, in `ghcr.io/specsnl/opentofu:0.2.0`, in specsnl/specsops-opentofu#14: state and saved plans are written as envelopes with no readable resources, a second plan shows no changes, a wrong or missing `TOFU_AGE_IDENTITY` fails, and a saved plan applies.
 
 Open:
 
-- [ ] Confirm the external method's stability status in the docs for the OpenTofu version we pin.
 - [ ] Decide on one recipients file for everything, or one per environment (for example, production readable only by production CI, break-glass and named people).
 - [ ] Name who holds the break-glass key.
 
