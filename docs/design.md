@@ -241,6 +241,8 @@ ssh-ed25519 AAAA… carol@laptop
 
 For local use, keep a `.env.tofu` with `TOFU_AGE_IDENTITY=op://<vault>/<item>/notesPlain` and run `op run --env-file=.env.tofu -- tofu plan`. A Taskfile wrapper keeps this to one command.
 
+The step-by-step procedures — generating a key, using it locally and in CI, adding and removing someone, and break-glass — are in the [runbook](./runbook.md).
+
 ## Configuration and base image
 
 The configuration has no key provider, and `enforced = true` on both targets. With enforcement on, a run that somehow lacks encryption fails instead of silently writing plaintext.
@@ -288,11 +290,11 @@ The image contains the binary only, never an identity. Decryption rights are dec
 
 ## Operations
 
-Recipient changes take effect only on the next state write. age encrypts to the list of recipients at write time, so an existing file still reflects the old list until it is rewritten.
+Recipient changes take effect only on the next state write. age encrypts to the list of recipients at write time, so an existing file still reflects the old list until it is rewritten. **A `tofu apply` that changes nothing does not rewrite it:** OpenTofu skips writing a state whose contents, lineage and serial are unchanged. So *rewrite every state* below means forcing the write, with `tofu state pull | jq '.serial += 1' | tofu state push -`, which the [runbook](./runbook.md#rewriting-a-state) describes.
 
-- **Adding someone:** add their public key to `age-recipients.txt`, and have them run `tofu-age check age-recipients.txt` with their identity in `TOFU_AGE_IDENTITY`. It fails on a key that is not in the file, or an SSH key with a passphrase, which they would otherwise only find out about on their first read. Then run `tofu apply` on every state they need. Until that write happens, they can't read the existing state.
-- **Removing someone, or a lost laptop:** delete the line, then apply every state. Old versions in the backend's history can still be decrypted with the removed key. That person also saw the plaintext, so rotate the secrets stored in state.
-- **Switching to post-quantum keys:** every holder generates a key with `age-keygen -pq` and keeps the old identity alongside it in `TOFU_AGE_IDENTITY`. Once every new public key is in, replace the whole recipients file at once, since age won't mix the two kinds, and apply every state. Drop the old identities after that. Old versions in the backend's history stay classic. Reading post-quantum state by hand needs age 1.3 or later.
+- **Adding someone:** add their public key to `age-recipients.txt`, and have them run `tofu-age check age-recipients.txt` with their identity in `TOFU_AGE_IDENTITY`. It fails on a key that is not in the file, or an SSH key with a passphrase, which they would otherwise only find out about on their first read. Then rewrite every state they need. Until that write happens, they can't read the existing state.
+- **Removing someone, or a lost laptop:** delete the line, then rewrite every state. Old versions in the backend's history can still be decrypted with the removed key. That person also saw the plaintext, so rotate the secrets stored in state.
+- **Switching to post-quantum keys:** every holder generates a key with `age-keygen -pq` and keeps the old identity alongside it in `TOFU_AGE_IDENTITY`. Once every new public key is in, replace the whole recipients file at once, since age won't mix the two kinds, and rewrite every state. Drop the old identities after that. Old versions in the backend's history stay classic. Reading post-quantum state by hand needs age 1.3 or later.
 - **A read fails with `decryption failed for all provided methods`:** OpenTofu reports only that. The cause is in tofu-age's stderr, printed alongside it: for example `TOFU_AGE_IDENTITY is unset or empty`, or `identity did not match any of the recipients`. With state locking on, the same failure surfaces as `Error acquiring the state lock ... failed to write backup file: decryption failed …`, which looks like a backend problem but is a key problem. Run `tofu-age check age-recipients.txt` to confirm.
 - **Reading state without OpenTofu (break-glass):** pull the encrypted payload out of the envelope and decrypt it with age. The payload is in `encrypted_data`; the command below decrypted a real state object from the S3 backend in specsnl/specsops-opentofu#14.
 
