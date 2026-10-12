@@ -279,6 +279,7 @@ Releases are built by goreleaser from `.goreleaser.yml` when a `v*` tag is pushe
 - **Linux and darwin, amd64 and arm64,** built with `CGO_ENABLED=0`. The binary is static, so it runs on Alpine without glibc.
 - **Archive names carry no version:** `tofu-age_<os>_<arch>.tar.gz`. The version is already in the download URL's path, so an image needs only the version and `TARGETARCH` to build it.
 - **A tag with a pre-release suffix,** such as `v0.1.0-rc.1`, is published as a pre-release.
+- **The pushed tag is the one released.** A final release is tagged on the commit its rc was checked on, so that commit carries two tags. The workflow sets `GORELEASER_CURRENT_TAG` to the pushed tag rather than letting goreleaser pick one.
 - **The release job alone may write.** The workflow grants `contents: read`, and only the release job gets `contents: write`. There is no Homebrew cask, so no tap token either.
 
 `task release:dry-run` builds the same archives and `checksums.txt` into `dist/` as a snapshot, without publishing anything.
