@@ -206,7 +206,7 @@ Before first use:
 
 ## Key management
 
-Every person or system that needs to read state gets its own age keypair. The public half goes into a recipients file committed to the repo. The private half never touches disk or the repo. An engineer may use their existing SSH key instead; its private half then stays where it already is, in `~/.ssh`.
+Every person or system that needs to read state gets its own age keypair. The public half goes into the recipients file of each environment it may read, committed to the repo. The private half never touches disk or the repo. An engineer may use their existing SSH key instead; its private half then stays where it already is, in `~/.ssh`.
 
 | Holder                                          | Private identity lives in                                    | Injected via                                   | Public key goes in   |
 |-------------------------------------------------|--------------------------------------------------------------|------------------------------------------------|----------------------|
@@ -322,14 +322,15 @@ Decided:
 - The source lives in a repo of its own, [specsnl/tofu-age](https://github.com/specsnl/tofu-age).
 - Pipelines get the binary through `ghcr.io/specsnl/opentofu`. Releases also ship darwin tarballs for running `tofu` on a Mac.
 - There is no migration: existing state is recreated under the new method.
-- v0 takes age keys, classic or post-quantum, and `ssh-ed25519` or `ssh-rsa` keys without a passphrase: no plugin keys.
+- v0 takes age keys, classic or post-quantum, and `ssh-ed25519` or `ssh-rsa` keys without a passphrase: no plugin keys. Hardware-backed keys (YubiKey, Secure Enclave) are out of scope.
+- There is one recipients file per environment, so production can be readable only by production CI, break-glass and named people.
+- The break-glass key's holders are named. It lives in a 1Password vault with restricted access, plus an offline copy.
 - The external method is stable as of OpenTofu 1.13, the version `ghcr.io/specsnl/opentofu` ships. Its docs marked it experimental from 1.10 through 1.12, and 1.13 dropped the label ([opentofu/opentofu@ebcf2c4](https://github.com/opentofu/opentofu/commit/ebcf2c493)).
 - tofu-age 0.1.0 is verified against OpenTofu v1.13.1, in `ghcr.io/specsnl/opentofu:0.2.0`, in specsnl/specsops-opentofu#14: state and saved plans are written as envelopes with no readable resources, a second plan shows no changes, a wrong or missing `TOFU_AGE_IDENTITY` fails, and a saved plan applies.
 
 Open:
 
-- [ ] Decide on one recipients file for everything, or one per environment (for example, production readable only by production CI, break-glass and named people).
-- [ ] Name who holds the break-glass key.
+- [ ] Decide whether to narrow recipients further than one file per environment, for example one per project.
 
 ## References
 
