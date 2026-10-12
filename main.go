@@ -2,6 +2,7 @@
 //
 //	tofu-age encrypt <recipients-file>   # public keys, one per line; safe to commit
 //	tofu-age decrypt                     # identity read from TOFU_AGE_IDENTITY
+//	tofu-age check <recipients-file>     # can that identity decrypt for this file?
 package main
 
 import (

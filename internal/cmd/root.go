@@ -73,6 +73,7 @@ Use "tofu-age <command> --help" for more information about a command.`,
 	cmd.Flags().Bool(flagVersion, false, "Print the version and exit (same as: version --dont-prettify)")
 
 	cmd.AddCommand(
+		newCheckCmd(),
 		newDecryptCmd(),
 		newEncryptCmd(),
 		newVersionCmd(),
