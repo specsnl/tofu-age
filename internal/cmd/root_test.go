@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -39,6 +40,47 @@ func runWithInput(t *testing.T, stdin string, args ...string) (string, string, e
 	err := root.Execute()
 
 	return stdout.String(), stderr.String(), err
+}
+
+// inputFor is the input object OpenTofu writes on stdin to hand over payload.
+func inputFor(t *testing.T, payload []byte) string {
+	t.Helper()
+
+	line, err := json.Marshal(map[string][]byte{"payload": payload})
+	if err != nil {
+		t.Fatalf("encode the input: %v", err)
+	}
+
+	return string(line) + "\n"
+}
+
+// outputOf asserts that stdout is the header followed by exactly one output
+// line, and returns the payload in it.
+func outputOf(t *testing.T, stdout string) []byte {
+	t.Helper()
+
+	rest, ok := strings.CutPrefix(stdout, header)
+	if !ok {
+		t.Fatalf("stdout = %q, want it to start with the header", stdout)
+	}
+
+	line, ok := strings.CutSuffix(rest, "\n")
+	if !ok || strings.Contains(line, "\n") {
+		t.Fatalf("stdout = %q, want one output line after the header", stdout)
+	}
+
+	var out struct {
+		Payload []byte `json:"payload"`
+	}
+
+	dec := json.NewDecoder(strings.NewReader(line))
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(&out); err != nil {
+		t.Fatalf("decode the output %q: %v", line, err)
+	}
+
+	return out.Payload
 }
 
 // Without the flag the root prints its help.
@@ -83,37 +125,9 @@ func TestRoot_SilencesUsageAndErrors(t *testing.T) {
 	}
 }
 
-// Until the crypto is built, encrypt and decrypt speak the protocol and then
-// fail: stdout holds the header alone, and the error says why.
-func TestStubs_SpeakTheProtocolThenFail(t *testing.T) {
-	for _, args := range [][]string{
-		{"encrypt", "age-recipients.txt"},
-		{"decrypt"},
-	} {
-		t.Run(args[0], func(t *testing.T) {
-			stdout, stderr, err := runWithInput(t, `{"payload":"aGVsbG8="}`, args...)
-			if err == nil || !strings.Contains(err.Error(), "not implemented") {
-				t.Fatalf("error = %v, want it to say not implemented", err)
-			}
-
-			if !strings.HasPrefix(err.Error(), args[0]+": ") {
-				t.Errorf("error = %q, want it to name the command", err)
-			}
-
-			if stdout != header {
-				t.Errorf("stdout = %q, want only the header", stdout)
-			}
-
-			if stderr != "" {
-				t.Errorf("stderr = %q, want nothing; main owns the single print", stderr)
-			}
-		})
-	}
-}
-
 // A key in the input is refused by both commands, before any crypto, with the
 // sentinel intact through the command's wrapping.
-func TestStubs_RejectAKey(t *testing.T) {
+func TestCommands_RejectAKey(t *testing.T) {
 	for _, args := range [][]string{
 		{"encrypt", "age-recipients.txt"},
 		{"decrypt"},
@@ -131,20 +145,22 @@ func TestStubs_RejectAKey(t *testing.T) {
 	}
 }
 
-func TestStubs_ValidateArguments(t *testing.T) {
+// Bad arguments are rejected before the command runs, so not even the header
+// reaches stdout.
+func TestCommands_ValidateArguments(t *testing.T) {
 	for _, args := range [][]string{
 		{"encrypt"},
 		{"encrypt", "a.txt", "b.txt"},
 		{"decrypt", "extra"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
-			_, _, err := run(t, args...)
+			stdout, _, err := run(t, args...)
 			if err == nil {
 				t.Fatal("want an argument error, got none")
 			}
 
-			if strings.Contains(err.Error(), "not implemented") {
-				t.Errorf("error = %v, want the arguments rejected before the command runs", err)
+			if stdout != "" {
+				t.Errorf("stdout = %q, want nothing: the arguments are rejected before the command runs", stdout)
 			}
 		})
 	}

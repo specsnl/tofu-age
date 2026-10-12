@@ -60,6 +60,17 @@ Keys come from two places:
 - **Encryption** reads public keys from a recipients file whose path is passed as an argument.
 - **Decryption** reads the private identity from the `TOFU_AGE_IDENTITY` environment variable. It is never read from a file, so it can be injected by `op run` or a CI secret.
 
+`internal/cmd` fills in the protocol's transform with `filippo.io/age`, pinned in `go.mod` so the exact code that wrote a state file can be rebuilt later:
+
+- **Both key sources use age's own file syntax.** One key per line; blank lines and lines starting with `#` are skipped. The recipients file can name each key's holder in a comment, and `TOFU_AGE_IDENTITY` can hold the output of `age-keygen` as is, or several identities, any one of which may match.
+- **age keys, classic or post-quantum.** Classic keys are X25519 (`age1…`, `AGE-SECRET-KEY-1…`). Post-quantum keys are age 1.3's ML-KEM-768 + X25519 hybrid (`age1pq1…`, `AGE-SECRET-KEY-PQ-1…`). Both are built into age, so both are accepted. Plugin keys (YubiKey, Secure Enclave) are out of scope for v0, and `age.ParseIdentities` cannot load them anyway.
+- **SSH keys, so a developer can decrypt locally with the key they already have.** The recipients file also takes `ssh-ed25519` and `ssh-rsa` public keys, and `TOFU_AGE_IDENTITY` can hold one SSH private key as `ssh-keygen` writes it (`-----BEGIN …`). age keys are still recommended, and CI and the break-glass key always use one. SSH recipients are not anonymous: anyone can check whether a state file was encrypted to a given SSH public key. `age.ParseRecipients` takes age keys only, so tofu-age parses the recipients file itself, with age's syntax and the age CLI's rule for SSH keys.
+- **An SSH key with a passphrase is refused when it decrypts, not before.** OpenTofu runs tofu-age with no terminal, so there is nowhere to ask for the passphrase. The public half of a key does not tell whether the private half has one, so `encrypt` cannot refuse it, and its holder only finds out on their first read. The error names the key's fingerprint. [#14](https://github.com/specsnl/tofu-age/issues/14) adds a `tofu-age check` that catches it when the key is added.
+- **Post-quantum keys can't share a recipients file with any other kind.** age refuses to encrypt to post-quantum and classic recipients together (X25519 or SSH), since the classic key would leave the file open to a quantum computer. A file that mixes them fails every write, loudly, until it is fixed. `TOFU_AGE_IDENTITY` has no such limit for age keys: it can hold both kinds, which is what reads old and new state during a switch.
+- **Every key problem is an error.** A missing or unreadable recipients file, one without a single recipient, an unset or empty `TOFU_AGE_IDENTITY`, a key that does not parse, and an identity that matches no recipient all exit non-zero with the header alone on stdout. No error repeats the value of `TOFU_AGE_IDENTITY`: it is a private key, and errors end up in CI logs.
+- **The age writer is always closed.** `Close` writes the last chunk and its authentication tag; skipping it truncates the ciphertext.
+- **A damaged ciphertext fails.** age authenticates the header and every chunk, and marks the last one, so a tampered byte or a truncation anywhere, including exactly between two chunks, is an error rather than a shorter plaintext.
+
 The proof of concept, in one file:
 
 ```go
@@ -187,20 +198,21 @@ func decrypt(ciphertext []byte) ([]byte, error) {
 
 Before first use:
 
-- [ ] Pin `filippo.io/age` in `go.mod`, so the exact code that wrote a state file can be rebuilt later.
-- [ ] Add a round-trip test: encrypt with a test recipient, then decrypt with the matching identity.
+- [x] Pin `filippo.io/age` in `go.mod`, so the exact code that wrote a state file can be rebuilt later.
+- [x] Add a round-trip test: encrypt with a test recipient, then decrypt with the matching identity.
 - [x] Add protocol tests: the header line comes first, and only JSON is written to stdout.
-- [ ] Add a failure test: a missing or wrong identity must exit non-zero.
+- [x] Add a failure test: a missing or wrong identity must exit non-zero.
 
 ## Key management
 
-Every person or system that needs to read state gets its own age keypair. The public half goes into a recipients file committed to the repo. The private half never touches disk or the repo.
+Every person or system that needs to read state gets its own age keypair. The public half goes into a recipients file committed to the repo. The private half never touches disk or the repo. An engineer may use their existing SSH key instead; its private half then stays where it already is, in `~/.ssh`.
 
-| Holder               | Private identity lives in                                    | Injected via                               | Public key goes in   |
-|----------------------|--------------------------------------------------------------|--------------------------------------------|----------------------|
-| Each engineer        | 1Password, one item per person                               | `op run` with `TOFU_AGE_IDENTITY=op://…`   | `age-recipients.txt` |
-| CI (GitHub Actions)  | Repository or organization secret                            | `env: TOFU_AGE_IDENTITY: ${{ secrets.… }}` | `age-recipients.txt` |
-| Break-glass recovery | 1Password vault with restricted access, plus an offline copy | Manual, emergencies only                   | `age-recipients.txt` |
+| Holder                                          | Private identity lives in                                    | Injected via                                   | Public key goes in   |
+|-------------------------------------------------|--------------------------------------------------------------|------------------------------------------------|----------------------|
+| Each engineer                                   | 1Password, one item per person                               | `op run` with `TOFU_AGE_IDENTITY=op://…`       | `age-recipients.txt` |
+| Or: an engineer's SSH key, without a passphrase | `~/.ssh`                                                     | `TOFU_AGE_IDENTITY="$(cat ~/.ssh/id_ed25519)"` | `age-recipients.txt` |
+| CI (GitHub Actions)                             | Repository or organization secret                            | `env: TOFU_AGE_IDENTITY: ${{ secrets.… }}`     | `age-recipients.txt` |
+| Break-glass recovery                            | 1Password vault with restricted access, plus an offline copy | Manual, emergencies only                       | `age-recipients.txt` |
 
 The break-glass key is not optional. If every identity listed in the file is lost, the state can never be decrypted again. There is no reset path.
 
@@ -208,6 +220,7 @@ To generate a keypair:
 
 ```sh
 age-keygen -o key.txt            # prints the public key (age1…)
+# or, for a post-quantum key:   age-keygen -pq -o key.txt   (age1pq1…)
 op item create --category "Secure Note" --title "tofu-age <name>" "notesPlain=$(cat key.txt)"
 rm key.txt
 ```
@@ -221,6 +234,8 @@ age1q…
 age1x…
 # break-glass
 age1z…
+# carol (ssh key, laptop)
+ssh-ed25519 AAAA… carol@laptop
 ```
 
 For local use, keep a `.env.tofu` with `TOFU_AGE_IDENTITY=op://<vault>/<item>/notesPlain` and run `op run --env-file=.env.tofu -- tofu plan`. A Taskfile wrapper keeps this to one command.
@@ -264,8 +279,9 @@ The image contains the binary only, never an identity. Decryption rights are dec
 
 Recipient changes take effect only on the next state write. age encrypts to the list of recipients at write time, so an existing file still reflects the old list until it is rewritten.
 
-- **Adding someone:** add their public key to `age-recipients.txt`, then run `tofu apply` on every state they need. Until that write happens, they can't read the existing state.
+- **Adding someone:** add their public key to `age-recipients.txt`, then run `tofu apply` on every state they need. Until that write happens, they can't read the existing state. An SSH key must not have a passphrase; nothing checks that until they decrypt.
 - **Removing someone, or a lost laptop:** delete the line, then apply every state. Old versions in the backend's history can still be decrypted with the removed key. That person also saw the plaintext, so rotate the secrets stored in state.
+- **Switching to post-quantum keys:** every holder generates a key with `age-keygen -pq` and keeps the old identity alongside it in `TOFU_AGE_IDENTITY`. Once every new public key is in, replace the whole recipients file at once, since age won't mix the two kinds, and apply every state. Drop the old identities after that. Old versions in the backend's history stay classic. Reading post-quantum state by hand needs age 1.3 or later.
 - **Reading state without OpenTofu (break-glass):** pull the encrypted payload out of the envelope and decrypt it with age. Confirm the field name against a real encrypted file before relying on it.
 
   ```sh
@@ -278,26 +294,27 @@ Recipient changes take effect only on the next state write. age encrypts to the 
 
 The biggest risk is losing the ability to decrypt. Everything else is a limit on what encryption protects.
 
-| Risk                                           | Why it matters                                       | Mitigation                                                                              |
-|------------------------------------------------|------------------------------------------------------|-----------------------------------------------------------------------------------------|
-| All identities lost                            | State can't be recovered, and there is no reset      | Break-glass key, tested against a real encrypted state file                             |
-| `tofu-age` missing where `tofu` runs           | Reads fail, so no plan or apply is possible          | Ship it in the base image, and run `tofu` through it                                    |
-| Hardware-backed keys (YubiKey, Secure Enclave) | `age.ParseIdentities` doesn't load plugin identities | Native X25519 keys only for now; supporting plugins means shelling out to the `age` CLI |
-| Plaintext visible to whoever runs `tofu`       | Encryption only protects data at rest                | Run production applies from CI; restrict who holds production identities                |
-| Old state versions                             | Removed keys still open historical versions          | Rotate secrets after removing a recipient                                               |
+| Risk                                                | Why it matters                                       | Mitigation                                                                                  |
+|-----------------------------------------------------|------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| All identities lost                                 | State can't be recovered, and there is no reset      | Break-glass key, tested against a real encrypted state file                                 |
+| `tofu-age` missing where `tofu` runs                | Reads fail, so no plan or apply is possible          | Ship it in the base image, and run `tofu` through it                                        |
+| Hardware-backed keys (YubiKey, Secure Enclave)      | `age.ParseIdentities` doesn't load plugin identities | Native age keys only for now; supporting plugins means shelling out to the `age` CLI        |
+| An SSH key with a passphrase in the recipients file | Its holder can't decrypt, and `encrypt` can't tell   | Recommend age keys; `tofu-age check` ([#14](https://github.com/specsnl/tofu-age/issues/14)) |
+| Plaintext visible to whoever runs `tofu`            | Encryption only protects data at rest                | Run production applies from CI; restrict who holds production identities                    |
+| Old state versions                                  | Removed keys still open historical versions          | Rotate secrets after removing a recipient                                                   |
 
 Decided:
 
 - The source lives in a repo of its own, [specsnl/tofu-age](https://github.com/specsnl/tofu-age).
 - Distribution is Docker only, through `ghcr.io/specsnl/opentofu`.
 - There is no migration: existing state is recreated under the new method.
+- v0 takes age keys, classic or post-quantum, and `ssh-ed25519` or `ssh-rsa` keys without a passphrase: no plugin keys.
 
 Open:
 
 - [ ] Confirm the external method's stability status in the docs for the OpenTofu version we pin.
 - [ ] Decide on one recipients file for everything, or one per environment (for example, production readable only by production CI, break-glass and named people).
 - [ ] Name who holds the break-glass key.
-- [ ] Confirm native X25519 keys only for v0.
 
 ## References
 
