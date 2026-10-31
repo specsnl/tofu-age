@@ -49,7 +49,7 @@ services:
     profiles: ["build"]
     user: ${FIXUID:-1000}:${FIXGID:-1000}
     # Latest version: https://hub.docker.com/r/goreleaser/goreleaser/tags
-    image: goreleaser/goreleaser:v2.18.3
+    image: goreleaser/goreleaser:v2.19.0
     working_dir: /src
     environment:
       GOCACHE: /cache/go-build
@@ -68,7 +68,7 @@ services:
     profiles: ["markdown"]
     user: ${FIXUID:-1000}:${FIXGID:-1000}
     # Latest version: https://hub.docker.com/_/node/tags
-    image: node:26.10.0-trixie
+    image: node:26.12.1-trixie
     working_dir: /src
     environment:
       NPM_CONFIG_CACHE: /cache/npm
@@ -89,7 +89,7 @@ services:
     profiles: ["lint"]
     user: ${FIXUID:-1000}:${FIXGID:-1000}
     # Latest version: https://hub.docker.com/r/golangci/golangci-lint/tags
-    image: golangci/golangci-lint:v2.14.0-alpine
+    image: golangci/golangci-lint:v2.15.0-alpine
     working_dir: /src
     environment:
       GOCACHE: /cache/go-build
