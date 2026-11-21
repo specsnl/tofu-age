@@ -49,7 +49,7 @@ services:
     profiles: ["build"]
     user: ${FIXUID:-1000}:${FIXGID:-1000}
     # Latest version: https://hub.docker.com/r/goreleaser/goreleaser/tags
-    image: goreleaser/goreleaser:v2.20.1
+    image: goreleaser/goreleaser:v2.20.2
     working_dir: /src
     environment:
       GOCACHE: /cache/go-build
